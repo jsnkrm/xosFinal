@@ -9,6 +9,9 @@ alias newPCB S7;
 alias newPhysicalSP S8;
 alias WaitingPID S9;
 alias WaitingPCB S10;
+alias j S11;
+alias pageNum S12;
+alias x S13;
 
 physicalSP = ([PTBR + 2 * (SP / 512)] * 512) + (SP % 512);
 sysCallNo = [physicalSP - 1]; 		
@@ -25,21 +28,22 @@ if (sysCallNo == 10) then			//  E X I T
 		i = i + 1;
 	endwhile;
 
-	flag = 0;
-	i=0;
+	i = 0;
 	while (i < 32) do
-		if([READY_LIST + i*32 + 1] == 1) then
-			flag=1; 
-			break;
+		if([READY_LIST + ((currentPID + i) % 32)*32 + 1] == 1) then
+			newPCB = READY_LIST + ((currentPID + i) % 32)*32;
+			break;	
 		endif;
-
 		i = i + 1;
 	endwhile;
  
-	if(flag == 0) then
+	if(i == 32) then
 		print("Exit");
 		halt; 
 	endif;
+
+	pageNum = [PTBR + 6];
+	x = PTBR; 
 
 	i = 0;
 	while (i < 8) do
@@ -55,27 +59,24 @@ if (sysCallNo == 10) then			//  E X I T
 			[currentPCB + 15 + i * 2] = -1;
 			[currentPCB + 15 + i * 2 + 1] = -1;
 		endif;
+		if(i<4) then
+			if( [PTBR+ i*2 + 1] == "01" || [PTBR + i*2 + 1] == "11") then
+				[MEM_LIST + [PTBR + i*2] ] = [MEM_LIST + [PTBR + i*2] ] -1; 	
+			
+			else
+				if ([PTBR + i*2] >= 448) then									
+					[DISK_LIST + [PTBR + i*2]] = [DISK_LIST + [PTBR + i*2]] - 1;
+					store(6,20); 													
+				endif;
+			endif;
+
+			[PTBR + i*2] = -1;
+			[PTBR + i*2 + 1] = "00";
+		endif;
 		i = i + 1;
 	endwhile;
-
+	
 	[currentPCB + 1] = 0; 
-
-	i = 0;
-	while (i<4) do
-		if( [PTBR+ i*2 + 1] == "01" || [PTBR + i*2 + 1] == "11") then
-			[MEM_LIST + [PTBR + i*2] ] = [MEM_LIST + [PTBR + i*2] ] -1; 	
-		
-		else
-			if ([PTBR + i*2] >= 448) then									
-				[DISK_LIST + [PTBR + i*2]] = [DISK_LIST + [PTBR + i*2]] - 1;
-				store(6,20); 													
-			endif;
-		endif;
-
-		[PTBR + i*2] = -1;
-		[PTBR + i*2 + 1] = "00";
-		i = i +1;
-	endwhile;
 
 endif;
 
@@ -128,18 +129,9 @@ if (sysCallNo == 14) then					//------------------------- S I G N A L ----------
 
 	[physicalSP - 2] = 0;
 	ireturn;
-endif;
+endif;										//--------------------------------------------------------------------------			
 
-if ((sysCallNo == 10) || (sysCallNo == 13)) then 	//-------- W A I T - O R - E X I T -----------------------------------------------------------------------
-
-	i = 0;
-	while (i < 32) do
-		if([READY_LIST + ((currentPID + i) % 32)*32 + 1] == 1) then
-			newPCB = READY_LIST + ((currentPID + i) % 32)*32;
-			break;	
-		endif;
-		i = i + 1;
-	endwhile;
+	
 							
 	BP = [newPCB + 2];	 
 	SP = [newPCB + 3]; 
@@ -155,6 +147,32 @@ if ((sysCallNo == 10) || (sysCallNo == 13)) then 	//-------- W A I T - O R - E X
 	R6 = [newPCB + 13];
 	R7 = [newPCB + 14];
 
+	if([PTBR + 6] >= 448) then
+		
+		if(sysCallNo == 10) then
+			[DISK_LIST + [PTBR + 6]] = 0;
+			store(6,20);
+		endif;	
+
+		load(1,[PTBR + 6]);
+		store(pageNum,[PTBR + 6]);
+		i = 0;
+		while(i < 512) do
+			[pageNum*512 + i] = [512 + i];
+			i = i + 1;
+		endwhile;
+		[x + 6] = [PTBR + 6];
+		[x + 7] = "00";
+		[PTBR + 6] = pageNum;
+		[MEM_LIST + pageNum] = 1;
+		[PTBR + 7] = "11";
+		store(6,20);
+	endif;
+
+	
+
+
+
 	SP = SP +1;
 
 	newPhysicalSP = ([PTBR + 2 * (SP / 512)] * 512) + (SP % 512);
@@ -164,4 +182,4 @@ if ((sysCallNo == 10) || (sysCallNo == 13)) then 	//-------- W A I T - O R - E X
 
 	print("Exit");
 	ireturn;
-endif;
+

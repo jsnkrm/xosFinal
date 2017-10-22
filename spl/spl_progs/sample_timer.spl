@@ -4,6 +4,9 @@ alias count S2;
 alias newPCB S3;
 alias physicalSP S4; 
 alias newPhysicalSP S5;
+alias j S6;
+alias pageNum S7;
+alias i S8;
 
 physicalSP = ([PTBR + 2*(SP /512)] * 512) + (SP % 512); 
 currentPID = (PTBR - 1024) / 8; 
@@ -27,6 +30,9 @@ currentPCB = READY_LIST + currentPID * 32;
 [currentPCB + 13] = R6;
 [currentPCB + 14] = R7;
 
+j = PTBR;
+pageNum = [PTBR + 6];
+
 count = 1;
 while (count <= 32) do 
 	if( [READY_LIST + ((currentPID + count) % 32) * 32 + 1 ] == 1) then
@@ -49,6 +55,22 @@ R4 = [newPCB + 11];
 R5 = [newPCB + 12];
 R6 = [newPCB + 13];
 R7 = [newPCB + 14];
+
+if([PTBR + 6] >= 448) then
+	load(1,[PTBR + 6]);
+	store(pageNum,[PTBR + 6]);
+	i = 0;
+	while(i < 512) do
+		[pageNum*512 + i] = [512 + i];
+		i = i + 1;
+	endwhile;
+	[j + 6] = [PTBR + 6];
+	[j + 7] = "00";
+	[PTBR + 6] = pageNum;
+	[MEM_LIST + pageNum] = 1;
+	[PTBR + 7] = "11";
+	store(6,20);
+endif;		
 
 SP = SP +1; 
 

@@ -59,27 +59,20 @@ if (sysCallNo == 8) then			// F O R K
 		counter = 0;
 
 		while (1) do
-			
-			if (counter == 256) then
-				[physicalSP - 2]=-1;
-				ireturn;
-			endif;
 
 			if (pageIndex >= 256) then
 				pageIndex=pageIndex-256;
 			endif;
 
 
-			if ((pageIndex % 8) == 6) then
+			if ((PTBR + 6) == PAGE_TABLE + pageIndex) then
 				pageIndex = pageIndex + 2;
-				counter = counter + 1;
 				continue;			
 			endif;
 
 			if ([PAGE_TABLE + pageIndex + 1] == "01") then	
 				if ([MEM_LIST + [PAGE_TABLE + pageIndex] ] > 1) then
 					pageIndex = pageIndex + 2; 
-					counter = counter + 1;
 					continue;
 				endif;
 
@@ -117,7 +110,6 @@ if (sysCallNo == 8) then			// F O R K
 			endif;
 
 			pageIndex = pageIndex + 2;
-			counter = counter + 1;
 		endwhile;
 
 	endif;

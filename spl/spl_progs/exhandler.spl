@@ -63,7 +63,7 @@ if(i == 64) then
 			pageIndex = pageIndex - 256;	
 		endif;
 
-		if ((pageIndex % 8) == 6) then
+		if ((PTBR + 6) == PAGE_TABLE + pageIndex) then
 			pageIndex = pageIndex + 2; 
 			continue;			
 		endif;
