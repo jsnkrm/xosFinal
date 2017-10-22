@@ -1,0 +1,103 @@
+alias physicalSP S0;
+alias sysCallNo S1;
+alias newLseek S2;
+alias fileDescriptor S3;
+alias fileSize S4;
+alias wordRead S5;
+alias currentPCB S6;
+alias fileTableIndex S7;
+alias LSeek S8;
+alias fatIndex S9;
+alias dataBlock S10;
+
+physicalSP = ([PTBR + 2 * (SP / 512)] * 512) + (SP % 512);
+sysCallNo = [physicalSP - 1]; 		
+currentPCB = READY_LIST + ((PTBR - PAGE_TABLE) / 8 ) * 32; 
+
+
+if (sysCallNo == 6) then 		// 	S E E K --------------------------------------------------------------------------------------------------------
+	
+
+	newLseek = [physicalSP -3];				    
+	fileDescriptor = [physicalSP -4];														
+
+	if (0>fileDescriptor || fileDescriptor>7) then 	
+		[physicalSP -2] = -1;					
+		print("SeekErr1");
+		ireturn;
+	endif;
+
+	fileTableIndex = [currentPCB + 15 + fileDescriptor*2];
+
+	if (fileTableIndex == -1) then	
+		[physicalSP -2] = -1;					
+		print("SeekErr2");
+		ireturn;
+	endif;
+
+	fatIndex = [FILE_TABLE + fileTableIndex*2];	
+
+	fileSize = [FAT + fatIndex*8 + 1]; 			
+
+	if (0 > newLseek || newLseek > fileSize) then
+		[physicalSP -2] = -1;					
+		print("SeekErr3");
+		ireturn;
+	endif;
+
+	[currentPCB + 15 + fileDescriptor*2 + 1] = newLseek;
+	[physicalSP -2] =0;
+	ireturn;
+
+endif;
+
+if (sysCallNo == 7) then		// R E A D ------------------------------------------------------------------------------------------------------------
+
+	wordRead = [physicalSP -3]; 		
+	fileDescriptor = [physicalSP -4];
+
+	if (0>fileDescriptor || fileDescriptor>7) then 	
+		[physicalSP -2] = -1;					
+		print("ReadErr1");
+		ireturn;
+	endif;
+
+	fileTableIndex = [currentPCB + 15 + fileDescriptor*2];
+
+	if (fileTableIndex == -1) then	
+		[physicalSP -2] = -1;					
+		print("ReadErr2");
+		ireturn;
+	endif;
+
+	LSeek = [currentPCB + 15 + fileDescriptor*2 + 1];
+
+	fatIndex = [FILE_TABLE + fileTableIndex*2];
+
+	load (1, [FAT + fatIndex*8 + 2]); 
+
+	if (LSeek == [FAT + fatIndex*8 +1]) then
+		[physicalSP -2] = -1;					
+		print("ReadErr3");
+		ireturn;
+	endif;
+
+	dataBlock = [SCRATCHPAD + (LSeek / 512)];
+
+	if ( dataBlock == -1) then
+		[physicalSP -2] = -1;					
+		print("ReadErr4");
+		ireturn;
+	endif;
+
+	load (1,dataBlock); 
+
+	wordRead = [SCRATCHPAD + (LSeek % 512)];
+
+	[physicalSP-3] =wordRead;
+	[currentPCB + 15 + fileDescriptor*2 + 1] = [currentPCB + 15 + fileDescriptor*2 + 1] + 1;
+
+	[physicalSP -2] =0; 
+	ireturn;
+
+endif;

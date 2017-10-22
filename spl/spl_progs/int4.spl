@@ -1,0 +1,93 @@
+alias physicalSP S0;
+alias sysCallNo S1;
+alias wordToWrite S2;					
+alias fileDescriptor S3;				
+alias currentPCB S4;
+alias fileTableIndex S5;
+alias seekPosition S6;
+alias fatIndex S7;
+alias i S8;
+alias flag S9;
+alias dataBlockNO S10;
+alias flag2 S11;
+
+physicalSP = ([PTBR + 2 * (SP / 512)] * 512) + (SP % 512);
+sysCallNo = [physicalSP - 1]; 	
+currentPCB = READY_LIST + ((PTBR - PAGE_TABLE) /8) * 32;
+
+if (sysCallNo == 5) then    	// W R I T E -------------------------
+	
+	wordToWrite = [physicalSP - 3];		
+	fileDescriptor = [physicalSP - 4]; 
+
+	if(0>fileDescriptor || fileDescriptor>7) then
+		[physicalSP -2] = -1; 			
+		print("WriteErr1");
+		ireturn;
+	endif;
+
+	fileTableIndex = [currentPCB + 15 + fileDescriptor*2];
+	seekPosition = [currentPCB + 15 + fileDescriptor*2 + 1];
+
+	if (fileTableIndex == -1 || seekPosition == -1) then
+		[physicalSP -2] = -1; 			
+		print("WriteErr2");
+		ireturn;
+	endif;
+	
+	fatIndex = [FILE_TABLE + fileTableIndex*2];
+	load(1, [FAT + fatIndex*8 + 2]);
+	flag2 =0;
+	dataBlockNO = [SCRATCHPAD + (seekPosition/512)];
+
+	if ( dataBlockNO == -1) then
+		
+		flag2 = 1;
+		i= 24;
+		flag =0;
+		while (i<448) do 
+			if([DISK_LIST + i] == 0)  then
+				flag =1;			 					
+				[DISK_LIST + i] = 1; 					
+				[SCRATCHPAD + (seekPosition/512)] = i;				
+
+				[FAT + fatIndex*8 + 1] = [FAT + fatIndex*8 + 1] + 512; 
+
+				store(1,[FAT + fatIndex*8 + 2]); 		
+				store(5,19); 		
+				store(6,20); 		
+				break;
+			endif;
+
+			i = i+1;
+		endwhile;
+
+		if(flag == 0) then
+			[physicalSP -2] = -1; 
+			print("WriteErr3");
+			ireturn;
+		endif;
+
+	endif;
+
+	if(flag2 == 1) then
+		dataBlockNO = i;
+	endif;
+
+	load(1, dataBlockNO); 		
+
+	[SCRATCHPAD + (seekPosition % 512)] = wordToWrite; 
+
+	if(dataBlockNO >= 24 || dataBlockNO <448) then
+		store (1, dataBlockNO);
+	else
+		print("WriteErr4");
+	endif;
+
+	[currentPCB + 15 + fileDescriptor*2 + 1] = [currentPCB + 15 + fileDescriptor*2 + 1] + 1;
+
+	[physicalSP - 2] = 0; 
+	ireturn;
+
+endif;
+

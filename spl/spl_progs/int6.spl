@@ -1,0 +1,118 @@
+alias physicalSP S0;
+alias sysCallNo S1;
+alias filename S2;
+alias i S3;
+alias j S4;
+alias k S5;
+alias basicBlock S6;
+alias counter S7;
+alias validPages S8;
+alias currentPCB S9;
+alias fileTableIndex S10;
+alias PID S11;
+
+
+
+physicalSP = ([PTBR + 2 * (SP / 512)] * 512) + (SP % 512);
+sysCallNo = [physicalSP - 1]; 		
+currentPCB = READY_LIST + ((PTBR - PAGE_TABLE)/8)*32 ;
+
+if (sysCallNo == 9) then			// E X E C
+
+	filename = [physicalSP - 3];
+
+	i=0;
+	while (i<64) do 
+		if ([FAT + i*8] == filename	) then
+			break;										
+		endif;
+		i =i +1;
+	endwhile;
+
+	if (i == 64) then
+		print("ExecErr1");
+		[physicalSP - 2] = -1; 							
+		ireturn;
+	endif;
+
+	basicBlock = [FAT + i*8 + 2];
+
+	load (1,basicBlock); 								
+	i=0;
+	while (i < 256) do
+		if ( [SCRATCHPAD + i] == -1 || [SCRATCHPAD + i] == "") then
+			break;
+		endif;
+		i = i + 1;
+	endwhile;		
+
+	if (i > 3)  then
+		breakpoint;				
+		print("ExecErr2");		
+		[physicalSP -2] =-1;
+		ireturn;
+	endif;	
+
+	i=0;
+	counter = 0;										
+	while (i < 3) do
+		if([PTBR + i*2 + 1] == "01" || [PTBR + i*2 + 1] == "11") then	 
+			[MEM_LIST + [PTBR + i*2] ] = [MEM_LIST + [PTBR + i*2] ] - 1; 
+												 
+		else	
+			if ([PTBR + i*2] >= 448) then
+				[DISK_LIST + [PTBR + i*2] ] = [DISK_LIST + [PTBR + i*2] ] - 1;
+				store (6,20);
+			endif;
+		endif;
+
+		[PTBR + 2*i] = [SCRATCHPAD + i];			
+		[PTBR + 2*i + 1] = "00";					
+		i = i + 1;
+	endwhile;
+
+	
+	[PTBR + 7] = "01"; 								
+
+	i =0 ;
+	while(i<8) do
+		fileTableIndex =[currentPCB + 15 + i*2];	
+		if(fileTableIndex != -1) then	
+			[FILE_TABLE + fileTableIndex*2 + 1] = [FILE_TABLE + fileTableIndex*2 + 1] - 1;
+
+			if ([FILE_TABLE + fileTableIndex*2 + 1] == 0) then
+				[FILE_TABLE + fileTableIndex*2] = -1;
+			endif;
+
+			[currentPCB + 15 + i*2] = -1;
+			[currentPCB + 15 + i*2 + 1] = -1;
+		endif;
+
+		i = i + 1;
+	endwhile;
+
+
+	SP = 3 * 512;									
+	physicalSP = ([PTBR + 2 * (SP / 512)] * 512) + (SP % 512);
+
+	[physicalSP] = 0;								
+
+	
+	ireturn;
+
+	else 
+		if (sysCallNo == 11) then		      // G E T - P I D
+			PID = (PTBR - PAGE_TABLE)/8;
+			[physicalSP - 2] = PID;
+			ireturn;
+
+		else
+			if (sysCallNo == 12) then      	  // G E T - P P I D
+
+				[physicalSP - 2] = [currentPCB + 31];	
+				ireturn;
+
+			endif;
+
+		endif;		
+endif;

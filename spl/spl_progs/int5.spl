@@ -1,0 +1,199 @@
+alias physicalSP S0;
+alias sysCallNo S1;
+alias childPID S2;
+alias flag S3;
+alias childPCB S4;
+alias i S5;
+alias k S6;
+alias j S7;
+alias childPTBR S8;
+alias currentPCB S9;
+alias childPhysicalSP S10;
+alias pageIndex S11;
+alias pageNum S12;
+alias counter S13;
+
+physicalSP = ([PTBR + 2 * (SP / 512)] * 512) + (SP % 512);
+sysCallNo = [physicalSP - 1]; 		
+currentPCB = READY_LIST + ((PTBR - PAGE_TABLE) / 8 ) * 32; 			
+
+if (sysCallNo == 8) then			// F O R K
+	
+	flag = 0;
+	childPID=0;
+	while (childPID < 32) do
+		if( [READY_LIST + childPID*32 + 1] == 0) then	
+			flag = 1; 				
+			break;					
+		endif;
+
+		childPID = childPID + 1;
+	endwhile;	
+
+	if (flag == 0) then
+		print("FrkErr1");
+		[physicalSP - 2] = -1; 		
+		ireturn;
+	endif;
+
+	childPCB = READY_LIST + childPID*32;
+	[childPCB + 0] = childPID; 		
+	
+
+									
+	i = 0;
+	flag = 0;	
+	while (i < 64) do
+		if ([MEM_LIST + i] == 0) then
+			[MEM_LIST + i] = 1;		
+			flag = 1;				
+			break;					
+		endif;
+		i = i + 1;
+	endwhile;
+
+
+	if (flag == 0) then		
+
+		pageIndex = 0;	
+		counter = 0;
+
+		while (1) do
+			
+			if (counter == 256) then
+				[physicalSP - 2]=-1;
+				ireturn;
+			endif;
+
+			if (pageIndex >= 256) then
+				pageIndex=pageIndex-256;
+			endif;
+
+
+			if ((pageIndex % 8) == 6) then
+				pageIndex = pageIndex + 2;
+				counter = counter + 1;
+				continue;			
+			endif;
+
+			if ([PAGE_TABLE + pageIndex + 1] == "01") then	
+				if ([MEM_LIST + [PAGE_TABLE + pageIndex] ] > 1) then
+					pageIndex = pageIndex + 2; 
+					counter = counter + 1;
+					continue;
+				endif;
+
+				j = 448; 
+				while (j < 512) do
+					if([DISK_LIST + j] == 0) then
+						break;
+					endif;
+					j = j + 1;
+				endwhile;
+
+				if(j == 512) then	
+					print "FrkErr2";	
+					[physicalSP + 1] = 10;
+					SP = SP + 2;		
+					inline "JMP 11776"; 
+				endif;
+
+				store([PAGE_TABLE + pageIndex],j);
+				[DISK_LIST + j] = 1;
+				store (6,20);
+
+				pageNum = [PAGE_TABLE + pageIndex];
+				[MEM_LIST + pageNum]=1;
+				i = pageNum;						
+
+				[PAGE_TABLE + pageIndex] = j;		  
+				[PAGE_TABLE + pageIndex + 1] = "00"; 
+
+				break;								 
+			endif;
+
+			if ([PAGE_TABLE + pageIndex + 1] == "11") then
+				[PAGE_TABLE + pageIndex + 1] = "01"; 
+			endif;
+
+			pageIndex = pageIndex + 2;
+			counter = counter + 1;
+		endwhile;
+
+	endif;
+
+
+	j =0;
+	while (j < 512) do
+		[i * 512 + j] = [[PTBR + 3*2] * 512 + j];	
+		j = j + 1;
+	endwhile;
+
+	childPTBR = PAGE_TABLE + childPID * 8; 			
+	
+	[childPTBR + 2*3] = i;
+	[childPTBR + 2*3 + 1] = "01"; 					
+	[MEM_LIST + i] = 1; 							
+
+
+
+	i=0;
+	while (i < 3) do
+		[childPTBR + 2*i] = [PTBR + i*2];				
+		[childPTBR + 2*i + 1] = [PTBR + i*2 + 1];
+
+		if([PTBR + i*2 + 1] == "01" || [PTBR + i*2 + 1] == "11") then	 
+			[MEM_LIST + [PTBR + i*2] ] = [MEM_LIST + [PTBR + i*2] ] + 1; 
+		else															 
+			if ([PTBR + i*2] >= 448) then
+				[DISK_LIST + [PTBR + i*2] ] = [DISK_LIST + [PTBR + i*2] ] + 1;
+				store (6,20);
+			endif;
+		endif;
+
+		i =i + 1;
+	endwhile;
+
+	[childPCB + 1] = 1;
+	[childPCB + 2] = BP;
+
+	[childPCB + 3] = SP - 1;			
+	[childPCB + 4] = [physicalSP]; 		
+	[childPCB + 5] = childPTBR; 		
+	
+	[childPCB + 6] = PTLR;				
+	[childPCB + 7] = R0;				
+	[childPCB + 8] = R1;				
+	[childPCB + 9] = R2;				
+	[childPCB + 10] = R3;				
+	[childPCB + 11] = R4;				
+	[childPCB + 12] = R5;				
+	[childPCB + 13] = R6;				
+	[childPCB + 14] = R7;				
+										
+	i=0;
+
+	while (i < 8) do
+		[childPCB + 15 + i*2] = [currentPCB + 15 + i*2]; 				
+		[childPCB + 15 + i*2 + 1] = [currentPCB + 15 + i*2 + 1]; 		
+
+		if([currentPCB + 15 + i*2] != -1) then
+			[FILE_TABLE + [currentPCB + 15 + i*2] * 2 + 1] = [FILE_TABLE + [currentPCB + 15 + i*2] * 2 + 1] + 1;
+		endif;
+
+		i = i + 1; 					
+	endwhile;
+
+
+
+
+	[physicalSP - 2] = childPID;	
+	childPhysicalSP = ([childPTBR + 2 * ((SP-1) / 512)] * 512) + ((SP-1) % 512);
+	[childPhysicalSP - 1] = -2; 	
+
+	ireturn;
+	else
+		print("FrkErr3");
+		[physicalSP - 2] = -1;
+		ireturn;
+endif;

@@ -1,0 +1,169 @@
+alias physicalSP S0;
+alias sysCallNo S1;
+alias filename S2;				
+alias i S3;
+alias j S4;
+alias k S5;
+alias flag S6;
+alias flag2 S7;
+alias block S8;
+alias basicblock S9;
+
+
+physicalSP = ([PTBR + 2 * (SP / 512)] * 512) + (SP % 512);
+sysCallNo = [physicalSP - 1]; 	
+filename = [physicalSP - 3]; 	
+
+
+if (sysCallNo == 1) then    	//C R E A T E --------------------------------------------------------------------------------------------
+	
+	i=0;	
+	while (i < 512) do
+		if([FAT + i]==filename) then
+			[physicalSP - 2] = 0;
+			ireturn;
+			break;
+		endif;
+		i = i + 8;
+	endwhile;
+	
+	
+	flag = 0; 					
+			
+	i=24; 						
+	while (i <= 447) do 
+		if([DISK_LIST + i] == 0) then 
+			flag = 1;
+			[physicalSP - 2] = 0;
+			break;
+		endif;
+		i = i + 1;
+	endwhile;
+
+	j=2;
+
+	flag2 = 0;
+
+	while (j < 512 && flag == 1) do  
+		if([FAT + j ]== -1) then 
+			flag2 = 1;
+			[FAT + j -1] = 0; 			
+			[FAT + j -2] = filename; 	
+			
+			[FAT + j ] = i; 			
+			[physicalSP - 2] = 0;	 	
+			break;
+		endif;
+		j = j + 8;
+	endwhile;
+
+	if (flag == 0 || flag2 == 0) then
+		[physicalSP - 2] = -1; 			
+		print("CreaErr1");
+		ireturn;
+	endif;
+
+	k=0;
+
+	while (k < 256) do
+		[1 * 512 + k] = -1;				
+		k = k +1;
+	endwhile;
+
+	store(1,i); 						
+	[DISK_LIST + i] = 1; 				
+
+	store(5,19);
+	store(6,20);
+
+	ireturn;
+endif;
+
+if (sysCallNo == 4) then				// D E L E T E ------------------------------------------------------------------------------------
+
+	
+	i = 0;
+	flag = 0;
+
+	while (i < 64) do
+		if([FAT + i*8] == filename) then
+			flag = 1;						
+			break;
+		endif;
+		i = i + 1;
+	endwhile;
+
+	if (flag == 0) then
+		[physicalSP - 2] = -1;				
+		print("DelErr1");
+		ireturn;
+	endif;
+	
+	j = 0;
+	flag =0;
+	while (j < 64) do
+		if([FILE_TABLE + j*2] == i)	then 	
+			[physicalSP - 2] = -1;			
+			print("DelErr2");
+			ireturn;
+			break;
+		endif;
+		j = j +1;
+	endwhile;
+	
+	basicblock = [FAT + i*8 + 2];
+	if(basicblock == -1) then
+		[physicalSP -2] = -1; 				
+		print("DelErr3");
+		ireturn;
+	endif;
+
+	j = 0;
+	flag = 1;
+
+	while (j < 256) do
+		load (1, basicblock); 			
+		block = [SCRATCHPAD + j];
+
+		if(block == -1)	then
+			break; 						
+		endif;
+
+		if(24 <= block && block <448 ) then
+			load(1, block); 			
+
+			k=0;
+			while (k<512) do
+				 [SCRATCHPAD +k] ="";
+				k=k+1;
+			endwhile;
+	
+			store(1,block);
+
+			[DISK_LIST + block]= 0;
+		endif;
+
+		j = j + 1;
+	endwhile;
+	
+	load(1,basicblock);
+
+	j = 0;
+	while (j < 256) do
+		[SCRATCHPAD + j] = "";
+		j = j + 1;
+	endwhile;
+
+	store(1, basicblock); 					
+
+	[DISK_LIST + basicblock] = 0; 			
+	[FAT + i*8] = -1;						
+	[FAT + i*8 + 1] = 0;					
+	[FAT + i*8 + 2] = -1;					
+
+	store(5,19);
+	store(6,20);
+	[physicalSP - 2] = 0;					
+	ireturn;
+
+endif;

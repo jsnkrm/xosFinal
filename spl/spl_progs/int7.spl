@@ -1,0 +1,167 @@
+alias physicalSP S0;
+alias sysCallNo S1;
+alias i S2;
+alias flag S3;
+alias currentPCB S4;
+alias filetableindex S5;
+alias currentPID S6;
+alias newPCB S7;
+alias newPhysicalSP S8;
+alias WaitingPID S9;
+alias WaitingPCB S10;
+
+physicalSP = ([PTBR + 2 * (SP / 512)] * 512) + (SP % 512);
+sysCallNo = [physicalSP - 1]; 		
+currentPCB = READY_LIST + ((PTBR - PAGE_TABLE) / 8 ) * 32;
+currentPID = (PTBR - PAGE_TABLE) / 8 ;
+
+if (sysCallNo == 10) then			//  E X I T 
+	
+	i = 0;
+	while (i < 32) do
+		if([READY_LIST + i*32 + 1] == 100 + currentPID) then
+			[READY_LIST + i*32 + 1] = 1; 				
+		endif;
+		i = i + 1;
+	endwhile;
+
+	flag = 0;
+	i=0;
+	while (i < 32) do
+		if([READY_LIST + i*32 + 1] == 1) then
+			flag=1; 
+			break;
+		endif;
+
+		i = i + 1;
+	endwhile;
+ 
+	if(flag == 0) then
+		print("Exit");
+		halt; 
+	endif;
+
+	i = 0;
+	while (i < 8) do
+		if([currentPCB + 15 + i * 2] != -1) then
+			
+			filetableindex = [currentPCB + 15 + i*2 ];
+			[FILE_TABLE + filetableindex * 2 + 1 ] = [FILE_TABLE + filetableindex * 2 + 1] - 1;						
+
+			if ([FILE_TABLE + filetableindex * 2 + 1 ] == 0) then
+				[FILE_TABLE + filetableindex * 2] = -1;
+			endif;
+
+			[currentPCB + 15 + i * 2] = -1;
+			[currentPCB + 15 + i * 2 + 1] = -1;
+		endif;
+		i = i + 1;
+	endwhile;
+
+	[currentPCB + 1] = 0; 
+
+	i = 0;
+	while (i<4) do
+		if( [PTBR+ i*2 + 1] == "01" || [PTBR + i*2 + 1] == "11") then
+			[MEM_LIST + [PTBR + i*2] ] = [MEM_LIST + [PTBR + i*2] ] -1; 	
+		
+		else
+			if ([PTBR + i*2] >= 448) then									
+				[DISK_LIST + [PTBR + i*2]] = [DISK_LIST + [PTBR + i*2]] - 1;
+				store(6,20); 													
+			endif;
+		endif;
+
+		[PTBR + i*2] = -1;
+		[PTBR + i*2 + 1] = "00";
+		i = i +1;
+	endwhile;
+
+endif;
+
+	
+if (sysCallNo == 13) then		//------------------------------------------- W A I T ----------------------------------------------
+	
+	WaitingPID = [physicalSP - 3];
+	WaitingPCB = READY_LIST + 32*WaitingPID;
+
+	if (WaitingPID < 0 || WaitingPID >= 32) then	
+		print("WaitErr1");
+		[physicalSP - 2]=-1;
+		ireturn;				
+	endif;
+
+	if (WaitingPID == currentPID || [WaitingPCB + 1] == 0) then
+		[physicalSP - 2]=-1;	
+		print("waitErr2");	
+		ireturn;
+	endif;
+
+	[currentPCB + 1] = 100 + WaitingPID;		
+	[currentPCB + 2] = BP;
+	[currentPCB + 3] = SP-1;
+	[currentPCB + 4] = [physicalSP];
+	[currentPCB + 5] = PTBR;
+	[currentPCB + 6] = PTLR;
+	[currentPCB + 7] = R0;
+	[currentPCB + 8] = R1;
+	[currentPCB + 9] = R2;
+	[currentPCB + 10] = R3;
+	[currentPCB + 11] = R4;
+	[currentPCB + 12] = R5;
+	[currentPCB + 13] = R6;
+	[currentPCB + 14] = R7;
+
+	[physicalSP - 2]=0;							
+
+endif;
+
+
+if (sysCallNo == 14) then					//------------------------- S I G N A L ------------------------------------------------------
+	i = 0;																
+	while (i < 32) do
+		if([READY_LIST + i*32 + 1] == 100 + currentPID) then
+			[READY_LIST + i*32 + 1] = 1; 				
+		endif;
+		i = i + 1;
+	endwhile;
+
+	[physicalSP - 2] = 0;
+	ireturn;
+endif;
+
+if ((sysCallNo == 10) || (sysCallNo == 13)) then 	//-------- W A I T - O R - E X I T -----------------------------------------------------------------------
+
+	i = 0;
+	while (i < 32) do
+		if([READY_LIST + ((currentPID + i) % 32)*32 + 1] == 1) then
+			newPCB = READY_LIST + ((currentPID + i) % 32)*32;
+			break;	
+		endif;
+		i = i + 1;
+	endwhile;
+							
+	BP = [newPCB + 2];	 
+	SP = [newPCB + 3]; 
+	PTBR = [newPCB + 5];
+	PTLR = [newPCB + 6];
+
+	R0 = [newPCB + 7];
+	R1 = [newPCB + 8];
+	R2 = [newPCB + 9];
+	R3 = [newPCB + 10];
+	R4 = [newPCB + 11];
+	R5 = [newPCB + 12];
+	R6 = [newPCB + 13];
+	R7 = [newPCB + 14];
+
+	SP = SP +1;
+
+	newPhysicalSP = ([PTBR + 2 * (SP / 512)] * 512) + (SP % 512);
+	[newPhysicalSP] = [newPCB + 4]; 
+
+	[newPCB + 1] = 2;
+
+	print("Exit");
+	ireturn;
+endif;

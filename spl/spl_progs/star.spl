@@ -1,0 +1,18 @@
+alias counter S0;
+alias n1 S1;
+alias n2 S2;
+alias c1 S3;
+alias c2 S4;
+print "Enter n:";
+read n1;
+n2=n1;
+c1=1;
+c2=0;
+while (c1<n1) do
+	c2 =1;
+	while (c2 <=c1) do
+		print c1;
+		c2 = c2 +1;
+	endwhile;
+	c1 =c1 +1;
+endwhile;

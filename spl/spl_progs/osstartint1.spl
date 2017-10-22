@@ -1,0 +1,111 @@
+load (5,19); 	
+load (6,20); 	
+
+load (7,1); 	
+load (8,2); 	
+
+load (9,3); 	
+load (10,4); 	
+
+load (11,5); 	
+load (12,6); 	
+
+load (13,7); 	
+load (14,8); 	
+
+load (15,9); 	
+load (16,10); 	
+
+load (17,11); 	
+load (18,12); 	
+
+load (19,13); 	
+load (20,14); 	
+
+load (21,15); 	
+load (22,16); 	
+
+load (23,17); 	
+load (24,18); 	
+
+
+
+alias counter S0;
+counter = 0;
+while (counter < 128) do
+	[FILE_TABLE + counter] = -1;	
+	[FILE_TABLE + counter + 1] = 0; 
+	counter = counter + 2;
+endwhile;
+
+
+
+counter = 0;
+while (counter <= 25) do
+	[MEM_LIST + counter] = 1;		
+	counter = counter + 1;			
+endwhile;
+										
+while (counter < 64) do
+	[MEM_LIST + counter] = 0;			
+	counter = counter + 1;				
+endwhile;
+										
+counter = 0;
+while (counter < 32) do				
+	[READY_LIST + counter*32 + 1] = 0;		
+	counter = counter + 1;			
+endwhile;
+
+alias i S1;
+i =0;
+counter =0;
+while (counter <32) do
+	i = 15;
+	while (i<32) do
+		[READY_LIST + 32*counter + i] = -1;
+		[READY_LIST + 32*counter + i + 1] = 0;
+		i = i + 2;
+	endwhile;
+	
+	counter = counter + 1;
+endwhile;
+
+counter = 448;			
+while (counter < 512) do
+	[DISK_LIST + counter] = 0;
+	counter = counter + 1;
+endwhile;
+
+store (6,20);			
+
+
+[READY_LIST	+ 0*32] = 0; 	
+
+PTBR = PAGE_TABLE + 0*8;	
+PTLR = 4; 					
+[PTBR + 0] = 21;   			
+[PTBR + 1] = "00"; 			
+[PTBR + 2] = 22;																					
+[PTBR + 3] = "00";  		
+[PTBR + 4] = 23;			
+[PTBR + 5] = "00";			
+[PTBR + 6] = 25; 
+[PTBR + 7] = "01";			
+							
+																					
+[READY_LIST + 0*32 + 1] = 2;
+[READY_LIST + 0*32 + 31] = 0;
+
+
+
+//#########################################################################################
+
+SP = 3 * 512; 	// This is the Logical Address (as is used in USER MODE after IRET)
+				// Physical  == [(3* 512) / 512 ] -> 28 (from page table above (PTBR + 2*3))
+
+[25 * 512] = 0; // Physical location of stack is used to set value for SP in our process
+				// so that IRET will change to USER MODE and then stack is popped
+				// then logical 0 is loaded to IP ,after logical translation of SP.
+
+ireturn;

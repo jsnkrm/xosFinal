@@ -1,0 +1,122 @@
+alias physicalSP S0;
+alias sysCallNo S1;
+alias filename S2;				
+alias i S3;
+alias j S4;
+alias k S5;
+alias flag S6;
+alias fileDescriptor S7;					
+alias currentPCB S8;		
+alias filetableindex S9; 
+
+
+physicalSP = ([PTBR + 2 * (SP / 512)] * 512) + (SP % 512);
+sysCallNo = [physicalSP - 1]; 		
+currentPCB = READY_LIST + ((PTBR - PAGE_TABLE) / 8) * 32;															
+
+if (sysCallNo == 2) then 		// 	O P E N --------------------------------------------------------------------------------------------------------
+	
+	filename = [physicalSP - 3]; 	
+	i=0;
+	flag = 0;
+	j =0;
+	k =0;
+
+	while (i < 64) do
+		if([FAT + i * 8] == filename ) then
+			flag = 1;						
+			break;		
+		endif;
+		i = i + 1;
+	endwhile;
+
+	if (flag == 0) then 
+		[physicalSP - 2] = -1; 		
+		print("OPErr1");
+		ireturn;
+	endif;
+		
+	flag = 0;
+
+	while (j < 64) do
+		if ([FILE_TABLE + j*2] == i) then
+			flag = 1; 							
+			break;
+		endif;
+		j = j + 1;
+	endwhile;
+
+	if (flag == 0) then 
+		j =0;
+		while(j < 64) do
+			if ([FILE_TABLE + j*2] == -1) then
+				flag = 1;			
+				break;
+			endif;
+			j = j +1;
+		endwhile;
+	endif;
+
+	if (flag == 0) then 
+		[physicalSP - 2] = -1; 		
+		print("OPnErr2");
+		ireturn;
+	endif;
+
+	flag = 0;
+	while (k < 8) do 
+		if ([currentPCB + 15 + k*2] == -1) then
+			flag = 1;
+			breakpoint;
+			[currentPCB + 15 + k*2] = j; 		
+			[currentPCB + 15 + k*2 + 1] = 0;	
+			break;
+		endif;
+		k = k +1;
+	endwhile;
+
+	if (flag == 0) then 
+		[physicalSP - 2] = -1; 	
+		print("OpnErr3");				
+		ireturn;
+	endif;
+
+	if (flag == 1) then 
+		[FILE_TABLE + j*2] = i; 				
+		[FILE_TABLE + j*2 + 1] = [FILE_TABLE + j*2 + 1] + 1; 
+		[physicalSP -2] = k; 					
+		ireturn;
+	endif;
+endif;
+
+
+if (sysCallNo == 3) then						// C L O S E ---------------------------------------------------------------------------------------
+	
+	fileDescriptor = [physicalSP - 3]; 			
+	
+	if(fileDescriptor < 0 || fileDescriptor > 7) then
+		 [physicalSP - 2] = -1; 				
+		 print("ClosErr1");
+		 ireturn;
+	endif;
+	
+	if([currentPCB + 15 + fileDescriptor *2 ] == -1) then
+		 [physicalSP - 2] = -1; 				
+		 print("ClosErr2");
+		 ireturn;
+	endif;										
+	
+
+	filetableindex = [currentPCB + 15 + fileDescriptor *2 ]; 
+	[FILE_TABLE + filetableindex * 2 + 1 ] = [FILE_TABLE + filetableindex * 2 + 1] - 1; 
+
+	if( [FILE_TABLE + filetableindex * 2 + 1 ] == 0) then
+		 [FILE_TABLE + filetableindex*2]  = -1;
+	endif;
+	
+	[currentPCB + 15 + fileDescriptor*2] = -1;
+	[currentPCB + 15 + fileDescriptor*2 + 1] = -1;
+
+	[physicalSP - 2] = 0; 						
+	ireturn;
+endif;
