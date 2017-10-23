@@ -1,3 +1,6 @@
+define READY_LIST 31232;
+define PAGE_TABLE 30720;
+
 alias currentPID S0; 
 alias currentPCB S1;
 alias count S2;
@@ -9,9 +12,10 @@ alias pageNum S7;
 alias i S8;
 
 physicalSP = ([PTBR + 2*(SP /512)] * 512) + (SP % 512); 
-currentPID = (PTBR - 1024) / 8; 
+currentPID = (PTBR - PAGE_TABLE) / 8; 
 currentPCB = READY_LIST + currentPID * 32; 
 
+//breakpoint;
 
 [currentPCB + 1] =1; 
 [currentPCB + 2] = BP;
@@ -33,10 +37,12 @@ currentPCB = READY_LIST + currentPID * 32;
 j = PTBR;
 pageNum = [PTBR + 6];
 
+//breakpoint;
+
 count = 1;
-while (count <= 32) do 
-	if( [READY_LIST + ((currentPID + count) % 32) * 32 + 1 ] == 1) then
-		newPCB = (READY_LIST + ((currentPID + count) % 32) * 32);
+while (count <= 48) do 
+	if( [READY_LIST + ((currentPID + count) % 48) * 32 + 1 ] == 1) then
+		newPCB = (READY_LIST + ((currentPID + count) % 48) * 32);
 		break;
 	endif;
 	count = count + 1;
@@ -55,6 +61,8 @@ R4 = [newPCB + 11];
 R5 = [newPCB + 12];
 R6 = [newPCB + 13];
 R7 = [newPCB + 14];
+
+
 
 if([PTBR + 6] >= 448) then
 	load(1,[PTBR + 6]);

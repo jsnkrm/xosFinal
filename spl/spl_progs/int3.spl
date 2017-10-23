@@ -1,3 +1,6 @@
+define READY_LIST 31232;
+define PAGE_TABLE 30720;
+
 alias physicalSP S0;
 alias sysCallNo S1;
 alias newLseek S2;

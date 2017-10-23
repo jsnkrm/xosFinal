@@ -1,3 +1,6 @@
+define READY_LIST 31232;
+define PAGE_TABLE 30720;
+
 alias physicalSP S0;
 alias sysCallNo S1;
 alias filename S2;
@@ -47,7 +50,7 @@ if (sysCallNo == 9) then			// E X E C
 	endwhile;		
 
 	if (i > 3)  then
-		breakpoint;				
+		//breakpoint;				
 		print("ExecErr2");		
 		[physicalSP -2] =-1;
 		ireturn;

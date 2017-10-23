@@ -1,3 +1,6 @@
+define READY_LIST 31232;
+define PAGE_TABLE 30720;
+
 alias physicalSP S0;
 alias sysCallNo S1;
 alias filename S2;				
@@ -67,7 +70,7 @@ if (sysCallNo == 2) then 		// 	O P E N -----------------------------------------
 	while (k < 8) do 
 		if ([currentPCB + 15 + k*2] == -1) then
 			flag = 1;
-			breakpoint;
+			//breakpoint;
 			[currentPCB + 15 + k*2] = j; 		
 			[currentPCB + 15 + k*2 + 1] = 0;	
 			break;

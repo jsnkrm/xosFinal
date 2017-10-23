@@ -1,3 +1,6 @@
+define READY_LIST 31232;
+define PAGE_TABLE 30720;
+
 alias physicalSP S0;
 alias sysCallNo S1;
 alias i S2;
@@ -18,26 +21,45 @@ sysCallNo = [physicalSP - 1];
 currentPCB = READY_LIST + ((PTBR - PAGE_TABLE) / 8 ) * 32;
 currentPID = (PTBR - PAGE_TABLE) / 8 ;
 
-if (sysCallNo == 10) then			//  E X I T 
-	
-	i = 0;
-	while (i < 32) do
+
+if (sysCallNo == 14) then					//------------------------- S I G N A L ------------------------------------------------------
+	i = 0;																
+	while (i < 48) do
 		if([READY_LIST + i*32 + 1] == 100 + currentPID) then
 			[READY_LIST + i*32 + 1] = 1; 				
 		endif;
 		i = i + 1;
 	endwhile;
 
+	[physicalSP - 2] = 0;
+	ireturn;
+endif;										//--------------------------------------------------------------------------
+
+if(sysCallNo == 10) then
+	
 	i = 0;
-	while (i < 32) do
-		if([READY_LIST + ((currentPID + i) % 32)*32 + 1] == 1) then
-			newPCB = READY_LIST + ((currentPID + i) % 32)*32;
-			break;	
+	while (i < 48) do
+		if([READY_LIST + i*32 + 1] == 100 + currentPID) then
+			[READY_LIST + i*32 + 1] = 1; 				
 		endif;
 		i = i + 1;
 	endwhile;
- 
-	if(i == 32) then
+endif;
+
+i = 1;
+while (i <= 48) do	
+	if([READY_LIST + ((currentPID + i) % 48)*32 + 1] == 1) then
+		newPCB = READY_LIST + ((currentPID + i) % 48)*32;
+		break;	
+	endif;
+	i = i + 1;
+endwhile;
+
+if (sysCallNo == 10) then			//  E X I T 
+	
+
+
+	if(i == 49) then
 		print("Exit");
 		halt; 
 	endif;
@@ -75,27 +97,21 @@ if (sysCallNo == 10) then			//  E X I T
 		endif;
 		i = i + 1;
 	endwhile;
-	
+
 	[currentPCB + 1] = 0; 
 
 endif;
 
 	
 if (sysCallNo == 13) then		//------------------------------------------- W A I T ----------------------------------------------
-	
+
 	WaitingPID = [physicalSP - 3];
 	WaitingPCB = READY_LIST + 32*WaitingPID;
 
-	if (WaitingPID < 0 || WaitingPID >= 32) then	
+	if (WaitingPID < 0 || WaitingPID >= 48 || WaitingPID == 2 || WaitingPID == 0) then	
 		print("WaitErr1");
 		[physicalSP - 2]=-1;
 		ireturn;				
-	endif;
-
-	if (WaitingPID == currentPID || [WaitingPCB + 1] == 0) then
-		[physicalSP - 2]=-1;	
-		print("waitErr2");	
-		ireturn;
 	endif;
 
 	[currentPCB + 1] = 100 + WaitingPID;		
@@ -116,22 +132,6 @@ if (sysCallNo == 13) then		//------------------------------------------- W A I T
 	[physicalSP - 2]=0;							
 
 endif;
-
-
-if (sysCallNo == 14) then					//------------------------- S I G N A L ------------------------------------------------------
-	i = 0;																
-	while (i < 32) do
-		if([READY_LIST + i*32 + 1] == 100 + currentPID) then
-			[READY_LIST + i*32 + 1] = 1; 				
-		endif;
-		i = i + 1;
-	endwhile;
-
-	[physicalSP - 2] = 0;
-	ireturn;
-endif;										//--------------------------------------------------------------------------			
-
-	
 							
 	BP = [newPCB + 2];	 
 	SP = [newPCB + 3]; 
@@ -180,6 +180,12 @@ endif;										//--------------------------------------------------------------
 
 	[newPCB + 1] = 2;
 
+	if(sysCallNo == 10) then
+
 	print("Exit");
+	endif;
+
+	//breakpoint;
+
 	ireturn;
 

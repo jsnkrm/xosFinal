@@ -1,3 +1,6 @@
+define READY_LIST 31232;
+define PAGE_TABLE 30720;
+
 alias physicalSP S0;
 alias sysCallNo S1;
 alias childPID S2;
@@ -21,7 +24,7 @@ if (sysCallNo == 8) then			// F O R K
 	
 	flag = 0;
 	childPID=0;
-	while (childPID < 32) do
+	while (childPID < 48) do
 		if( [READY_LIST + childPID*32 + 1] == 0) then	
 			flag = 1; 				
 			break;					
@@ -60,8 +63,8 @@ if (sysCallNo == 8) then			// F O R K
 
 		while (1) do
 
-			if (pageIndex >= 256) then
-				pageIndex=pageIndex-256;
+			if (pageIndex >= 384) then
+				pageIndex=pageIndex-384;
 			endif;
 
 
